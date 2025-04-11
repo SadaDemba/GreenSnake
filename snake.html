@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Snake Anti-Plastique</title>
+  <style>
+    body {
+      background: #d1f5d3;
+      font-family: 'Arial', sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+    }
+
+    h1 {
+      margin-bottom: 20px;
+      color: #2d6a4f;
+      text-align: center;
+    }
+
+    .game-container {
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      gap: 20px;
+      width: 100%;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .info-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      height: 400px;
+      overflow-y: auto;
+    }
+
+    .intro {
+      background-color: #e0f7ea;
+      padding: 15px;
+      border-left: 5px solid #4caf50;
+      border-radius: 8px;
+      font-size: 1.1em;
+      margin-top: 55px;
+      line-height: 1.6;
+    }
+
+    .rules {
+      background-color: #fff3e0;
+      padding: 15px;
+      border-left: 5px solid #ff9800;
+      border-radius: 8px;
+      font-size: 1em;
+      margin-top: 55px;
+      list-style: none;
+      padding-left: 15px;
+      line-height: 1.6;
+    }
+
+
+
+    .game-area {
+      flex: 2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    canvas {
+      background-color: #ffffff;
+      border: 3px solid #2d6a4f;
+    }
+
+    #score {
+      font-size: 18px;
+      margin: 10px 0;
+      color: #1b4332;
+    }
+
+    #game-over {
+      display: none;
+      font-size: 24px;
+      font-weight: bold;
+      color: #d00000;
+      margin-top: 20px;
+    }
+
+    .eco-message {
+      position: fixed;
+      bottom: -100px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: rgba(255, 0, 0, 0.9);
+      color: white;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: bold;
+      transition: bottom 0.5s ease, opacity 0.5s ease;
+      z-index: 1000;
+      opacity: 0;
+    }
+
+    .eco-message.visible {
+      bottom: 40px;
+      opacity: 1;
+    }
+
+    /* Media query pour les écrans plus petits */
+    @media (max-width: 1000px) {
+      .game-container {
+        flex-direction: column;
+        margin-top: 55px;
+        align-items: center;
+      }
+
+      .info-panel {
+        width: 100%;
+        margin-top: 55px;
+        height: auto;
+        max-width: 400px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <h1>🌱 Snake Anti-Plastique 🌱</h1>
+
+  <div class="game-container">
+    <!-- Description à gauche -->
+    <div class="info-panel">
+      <div class="intro">
+        <h4>♻️ Moins de plastique, plus de vie !</h4>
+        🕹️ Un jeu fun et engagé où chaque orbe ramassé te rappelle que le plastique pollue plus qu’il ne
+          recycle.<br>
+        ♻️ <em>Attrape, évite, apprends.</em> <br>
+        🌍 Moins de plastique, plus de vie. Recyclez, réduisez, rejouez !
+      </div>
+    </div>
+      
+
+    <!-- Jeu au milieu -->
+    <div class="game-area">
+      <div id="score">Score: 0</div>
+      <canvas id="game" width="400" height="400"></canvas>
+      <div id="game-over">Game Over</div>
+    </div>
+    
+    <!-- Règles à droite -->
+    <div class="info-panel">
+      <ul class="rules">
+        <h4>🎮 Règles du jeu</h4>
+        <li>⬆️ Utilise les flèches pour déplacer ton serpent.</li>
+        <li>♻️ Ramasse les objets recyclables pour gagner des points.</li>
+        <li>🚯 Évite les objets non recyclables, ils te ralentissent !</li>
+        <li>📉 Moins tu ramasses, plus la pollution augmente !</li>
+        <li>💡 À chaque objet polluant mangé, un fait écologique s'affiche.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div id="eco-message" class="eco-message"></div>
+
+  <script>
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const grid = 20;
+    let score = 0;
+    const scoreDisplay = document.getElementById('score');
+    const gameOverDisplay = document.getElementById('game-over');
+    let gameRunning = true;
+    let gameInterval;
+    let speed = 200; // Millisecondes entre chaque frame (plus bas = plus rapide)
+    const minSpeed = 60; // Vitesse max atteignable
+    const redPlastics = [];
+    const maxRedPlastics = 2;
+    const redMinScore = 3; // score à partir duquel les rouges apparaissent
+
+    // Ressources pour le serpent - utiliser des caractères plus abstraits pour créer un serpent cohérent
+    const snakePartEmojis = "🟢";
+
+    // Un seul objet recyclable très représentatif
+    const recyclableItem = "♻️"; // Symbole universel du recyclage
+
+    // Un seul objet non recyclable très représentatif
+    const nonRecyclableItem = "🚯"; // Symbole "ne pas jeter"
+
+    const ecoFacts = [
+      "Le plastique met 400 ans à disparaître. Réduisons sa production.",
+      "Moins de 10% du plastique est vraiment recyclé.",
+      "Les microplastiques terminent dans nos assiettes. Stoppons ça.",
+      "Les tortues confondent les sacs plastiques avec des méduses.",
+      "Le plastique vient du pétrole : pollution garantie à chaque étape.",
+      "Recycler c'est bien, réduire c'est mieux. Agis dès maintenant.",
+      "Le plastique tue. Donne-lui un game over !",
+      "Moins de plastique, plus de vie. Recyclez, réduisez, rejouez !",
+      "Chaque minute, l'équivalent d'un camion de plastique est déversé dans les océans.",
+      "En 2050, il pourrait y avoir plus de plastique que de poissons dans les océans.",
+      "Les déchets plastiques étranglent les coraux et étouffent les écosystèmes marins."
+    ];
+
+
+    const snake = {
+      x: 160,
+      y: 160,
+      dx: grid,
+      dy: 0,
+      cells: [],
+      maxCells: 4,
+      direction: "right" // direction initiale
+    };
+
+    const plastic = {
+      x: 320,
+      y: 320
+    };
+
+    function getRandomInt(min, max) {
+      return Math.floor(Math.random() * (max - min)) + min;
+    }
+
+    function startGameLoop() {
+      if (gameInterval) clearInterval(gameInterval);
+      gameInterval = setInterval(loop, speed);
+    }
+
+    function addRedPlastic() {
+      if (score < redMinScore) return; // Pas d'orbes rouges avant un certain score
+
+      // Détermine la limite maximale selon le score
+      const dynamicMaxRedPlastics = score >= 6 ? maxRedPlastics : 1;
+
+      // Si on a déjà atteint la limite dynamique, on ne fait rien
+      if (redPlastics.length >= dynamicMaxRedPlastics) return;
+
+      // Choisit aléatoirement combien en ajouter (1 ou 2), sans dépasser la limite
+      const remainingSlots = dynamicMaxRedPlastics - redPlastics.length;
+      const count = Math.min(remainingSlots, Math.random() < 0.5 ? 1 : 2);
+
+      for (let i = 0; i < count; i++) {
+        let newRed = {
+          x: getRandomInt(0, 20) * grid,
+          y: getRandomInt(0, 20) * grid
+        };
+
+        const occupied = snake.cells.some(cell => cell.x === newRed.x && cell.y === newRed.y)
+          || (plastic.x === newRed.x && plastic.y === newRed.y)
+          || redPlastics.some(red => red.x === newRed.x && red.y === newRed.y);
+
+        if (!occupied) {
+          redPlastics.push(newRed);
+        } else {
+          i--; // Réessaie si collision
+        }
+      }
+    }
+
+    function updateSnakeDirection() {
+      if (snake.dx > 0) snake.direction = "right";
+      else if (snake.dx < 0) snake.direction = "left";
+      else if (snake.dy > 0) snake.direction = "down";
+      else if (snake.dy < 0) snake.direction = "up";
+    }
+
+    function loop() {
+      if (!gameRunning) return;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      snake.x += snake.dx;
+      snake.y += snake.dy;
+
+      // Met à jour la direction du serpent
+      updateSnakeDirection();
+
+      if (snake.x < 0 || snake.x >= canvas.width || snake.y < 0 || snake.y >= canvas.height) {
+        endGame();
+        return;
+      }
+
+      snake.cells.unshift({ x: snake.x, y: snake.y });
+      if (snake.cells.length > snake.maxCells) {
+        snake.cells.pop();
+      }
+
+      drawRecyclables();
+      drawNonRecyclables();
+      drawSnake();
+
+      // Vérifier les collisions
+      checkCollisions();
+    }
+
+    function checkCollisions() {
+      const head = snake.cells[0];
+
+      // Collision avec l'objet recyclable
+      if (head.x === plastic.x && head.y === plastic.y) {
+        snake.maxCells++;
+        score++;
+        scoreDisplay.innerText = `Score: ${score}`;
+
+        // Repositionne l'objet recyclable
+        plastic.x = getRandomInt(0, 20) * grid;
+        plastic.y = getRandomInt(0, 20) * grid;
+
+        // Réduction du délai pour accélérer le jeu, sans dépasser la limite
+        speed = Math.max(minSpeed, speed - 10);
+        startGameLoop(); // Redémarrer la boucle avec la nouvelle vitesse
+
+        // Supprime tous les objets rouges quand un bon est mangé
+        redPlastics.length = 0;
+
+        // À partir d'un certain score, possibilité d'ajouter un rouge
+        if (score >= redMinScore) {
+          addRedPlastic();
+        }
+      }
+
+      // Collision avec soi-même
+      for (let i = 1; i < snake.cells.length; i++) {
+        if (head.x === snake.cells[i].x && head.y === snake.cells[i].y) {
+          endGame();
+          return;
+        }
+      }
+
+      // Collision avec un objet non recyclable
+      for (let i = 0; i < redPlastics.length; i++) {
+        if (head.x === redPlastics[i].x && head.y === redPlastics[i].y) {
+          redPlastics.length = 0; // Supprime tous les rouges
+
+          // Repositionne l'objet recyclable
+          plastic.x = getRandomInt(0, 20) * grid;
+          plastic.y = getRandomInt(0, 20) * grid;
+
+          score = Math.max(0, score - 1);
+          scoreDisplay.innerText = `Score: ${score}`;
+
+          // À partir d'un certain score, possibilité d'ajouter un rouge
+          if (score >= redMinScore) {
+            addRedPlastic();
+          }
+
+          showEcoMessage();
+          break;
+        }
+      }
+    }
+
+    function drawSnake() {
+      snake.cells.forEach((cell, index) => {
+        ctx.font = `${grid}px Arial`;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+
+        ctx.fillText(snakePartEmojis, cell.x, cell.y);
+      });
+    }
+
+    function endGame() {
+      gameRunning = false;
+      clearInterval(gameInterval);
+      gameOverDisplay.style.display = 'block';
+    }
+
+    function drawRecyclables() {
+      ctx.font = `${grid}px Arial`;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      ctx.fillText(recyclableItem, plastic.x, plastic.y);
+    }
+
+    function drawNonRecyclables() {
+      redPlastics.forEach(red => {
+        ctx.font = `${grid}px Arial`;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+        ctx.fillText(nonRecyclableItem, red.x, red.y);
+      });
+    }
+
+    let ecoMessageTimeout;
+    let lastEcoMessage = null;
+
+    function showEcoMessage() {
+      let newMessage;
+
+      do {
+        newMessage = ecoFacts[Math.floor(Math.random() * ecoFacts.length)];
+      } while (newMessage === lastEcoMessage && ecoFacts.length > 1);
+
+      lastEcoMessage = newMessage;
+
+      const msgBox = document.getElementById("eco-message");
+      msgBox.innerText = newMessage;
+      msgBox.classList.add("visible");
+
+      clearTimeout(ecoMessageTimeout);
+      ecoMessageTimeout = setTimeout(() => {
+        msgBox.classList.remove("visible");
+      }, 4000); // reste visible 4 sec
+    }
+
+
+    document.addEventListener('keydown', e => {
+      if (!gameRunning) return;
+
+      // Empêche le serpent de faire demi-tour sur lui-même
+      if (e.key === 'ArrowLeft' && snake.dx === 0) {
+        snake.dx = -grid;
+        snake.dy = 0;
+        snake.direction = "left";
+      } else if (e.key === 'ArrowUp' && snake.dy === 0) {
+        snake.dy = -grid;
+        snake.dx = 0;
+        snake.direction = "up";
+      } else if (e.key === 'ArrowRight' && snake.dx === 0) {
+        snake.dx = grid;
+        snake.dy = 0;
+        snake.direction = "right";
+      } else if (e.key === 'ArrowDown' && snake.dy === 0) {
+        snake.dy = grid;
+        snake.dx = 0;
+        snake.direction = "down";
+      }
+    });
+
+    startGameLoop(); // Démarre la première boucle
+  </script>
+
+</body>
+
+</html>
