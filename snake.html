@@ -15,6 +15,7 @@
       min-height: 100vh;
       margin: 0;
       padding: 20px;
+      overflow-x: hidden;
     }
 
     h1 {
@@ -48,7 +49,6 @@
       border-left: 5px solid #4caf50;
       border-radius: 8px;
       font-size: 1.1em;
-      margin-top: 55px;
       line-height: 1.6;
     }
 
@@ -58,13 +58,10 @@
       border-left: 5px solid #ff9800;
       border-radius: 8px;
       font-size: 1em;
-      margin-top: 55px;
       list-style: none;
       padding-left: 15px;
       line-height: 1.6;
     }
-
-
 
     .game-area {
       flex: 2;
@@ -113,19 +110,53 @@
       opacity: 1;
     }
 
+    /* Styles pour les boutons */
+    .controls {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      margin-top: 15px;
+    }
+
+    .control-button {
+      background-color: #2d6a4f;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      padding: 8px 20px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .control-button:hover {
+      background-color: #1b4332;
+    }
+
+    .control-button:disabled {
+      background-color: #95d5b2;
+      cursor: not-allowed;
+    }
+
+    .control-button span {
+      margin-left: 5px;
+    }
+
     /* Media query pour les écrans plus petits */
     @media (max-width: 1000px) {
       .game-container {
         flex-direction: column;
-        margin-top: 55px;
         align-items: center;
       }
 
       .info-panel {
         width: 100%;
-        margin-top: 55px;
         height: auto;
         max-width: 400px;
+        margin-top: 20px;
       }
     }
   </style>
@@ -139,21 +170,26 @@
     <div class="info-panel">
       <div class="intro">
         <h4>♻️ Moins de plastique, plus de vie !</h4>
-        🕹️ Un jeu fun et engagé où chaque orbe ramassé te rappelle que le plastique pollue plus qu’il ne
-          recycle.<br>
+        🕹️ Un jeu fun et engagé où chaque orbe ramassé te rappelle que le plastique pollue plus qu'il ne
+        recycle.<br>
         ♻️ <em>Attrape, évite, apprends.</em> <br>
         🌍 Moins de plastique, plus de vie. Recyclez, réduisez, rejouez !
       </div>
     </div>
-      
+
 
     <!-- Jeu au milieu -->
     <div class="game-area">
       <div id="score">Score: 0</div>
       <canvas id="game" width="400" height="400"></canvas>
       <div id="game-over">Game Over</div>
+      <!-- Boutons de contrôle -->
+      <div class="controls">
+        <button id="pauseBtn" class="control-button">⏸️ <span>Pause</span></button>
+        <button id="replayBtn" class="control-button" disabled>🔄 <span>Rejouer</span></button>
+      </div>
     </div>
-    
+
     <!-- Règles à droite -->
     <div class="info-panel">
       <ul class="rules">
@@ -163,6 +199,8 @@
         <li>🚯 Évite les objets non recyclables, ils te ralentissent !</li>
         <li>📉 Moins tu ramasses, plus la pollution augmente !</li>
         <li>💡 À chaque objet polluant mangé, un fait écologique s'affiche.</li>
+        <li>⏸️ Utilise le bouton Pause pour faire une pause.</li>
+        <li>🔄 Utilise le bouton Rejouer pour recommencer.</li>
       </ul>
     </div>
   </div>
@@ -176,7 +214,10 @@
     let score = 0;
     const scoreDisplay = document.getElementById('score');
     const gameOverDisplay = document.getElementById('game-over');
+    const pauseBtn = document.getElementById('pauseBtn');
+    const replayBtn = document.getElementById('replayBtn');
     let gameRunning = true;
+    let gamePaused = false;
     let gameInterval;
     let speed = 200; // Millisecondes entre chaque frame (plus bas = plus rapide)
     const minSpeed = 60; // Vitesse max atteignable
@@ -208,7 +249,7 @@
     ];
 
 
-    const snake = {
+    let snake = {
       x: 160,
       y: 160,
       dx: grid,
@@ -218,7 +259,7 @@
       direction: "right" // direction initiale
     };
 
-    const plastic = {
+    let plastic = {
       x: 320,
       y: 320
     };
@@ -230,6 +271,59 @@
     function startGameLoop() {
       if (gameInterval) clearInterval(gameInterval);
       gameInterval = setInterval(loop, speed);
+    }
+
+    function pauseGame() {
+      if (gamePaused) {
+        gamePaused = false;
+        gameRunning = true;
+        pauseBtn.innerHTML = "⏸️ <span>Pause</span>";
+        startGameLoop();
+      } else {
+        gamePaused = true;
+        gameRunning = false;
+        pauseBtn.innerHTML = "▶️ <span>Reprendre</span>";
+        clearInterval(gameInterval);
+      }
+    }
+
+    function resetGame() {
+      // Réinitialiser tous les paramètres du jeu
+      clearInterval(gameInterval);
+      score = 0;
+      scoreDisplay.innerText = "Score: 0";
+      gameOverDisplay.style.display = 'none';
+      speed = 200;
+      gameRunning = true;
+      gamePaused = false;
+
+      // Réinitialiser le serpent
+      snake = {
+        x: 160,
+        y: 160,
+        dx: grid,
+        dy: 0,
+        cells: [],
+        maxCells: 4,
+        direction: "right"
+      };
+
+      // Réinitialiser la position de l'objet recyclable
+      plastic = {
+        x: 320,
+        y: 320
+      };
+
+      // Vider les objets non recyclables
+      redPlastics.length = 0;
+
+      // Mettre à jour l'état des boutons
+      pauseBtn.disabled = false;
+      pauseBtn.innerHTML = "⏸️ <span>Pause</span>";
+      replayBtn.disabled = true;
+
+      // Redémarrer la boucle du jeu
+      startGameLoop();
     }
 
     function addRedPlastic() {
@@ -370,6 +464,8 @@
       gameRunning = false;
       clearInterval(gameInterval);
       gameOverDisplay.style.display = 'block';
+      pauseBtn.disabled = true;
+      replayBtn.disabled = false;
     }
 
     function drawRecyclables() {
@@ -410,9 +506,19 @@
       }, 4000); // reste visible 4 sec
     }
 
+    // Événements des boutons
+    pauseBtn.addEventListener('click', pauseGame);
+    replayBtn.addEventListener('click', resetGame);
+
+    // Empêcher le défilement avec les touches flèches
+    window.addEventListener('keydown', function (e) {
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+        e.preventDefault();
+      }
+    });
 
     document.addEventListener('keydown', e => {
-      if (!gameRunning) return;
+      if (!gameRunning || gamePaused) return;
 
       // Empêche le serpent de faire demi-tour sur lui-même
       if (e.key === 'ArrowLeft' && snake.dx === 0) {
@@ -433,6 +539,9 @@
         snake.direction = "down";
       }
     });
+
+    // Désactiver le bouton replay au démarrage
+    replayBtn.disabled = true;
 
     startGameLoop(); // Démarre la première boucle
   </script>
